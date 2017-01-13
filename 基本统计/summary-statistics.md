@@ -183,3 +183,34 @@ override def mean: Vector = {
 【2】[Updating mean and variance estimates: an improved method](http://people.xiph.org/~tterribe/tmp/homs/West79-_Updating_Mean_and_Variance_Estimates-_An_Improved_Method.pdf)
 
 【3】[Weighted arithmetic mean](https://en.wikipedia.org/wiki/Weighted_arithmetic_mean)
+
+
+# 注释（foreachActive）
+There are 2 kinds of Vectors in spark DenseVector & SparseVector
+
+For DenseVector all elements are active, so foreachActive effectively becomes foreach
+
+  private[spark] override def foreachActive(f: (Int, Double) => Unit) = {
+    var i = 0
+    val localValuesSize = values.size
+    val localValues = values
+
+    while (i < localValuesSize) {
+      f(i, localValues(i))
+      i += 1
+    }
+  }
+SparseVector can have inactive elements, which should be skipped either manually in foreach, or using foreachActive, which does it under the hood
+
+  private[spark] override def foreachActive(f: (Int, Double) => Unit) = {
+    var i = 0
+    val localValuesSize = values.size
+    val localIndices = indices
+    val localValues = values
+
+    while (i < localValuesSize) {
+      f(localIndices(i), localValues(i))
+      i += 1
+    }
+  }
+So this is effectively foreach function for Vectors, which filters out only active elements, regardless of Vector implementation.
